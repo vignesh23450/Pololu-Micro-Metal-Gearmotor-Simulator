@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pololu Micro Metal Gearmotor — Faithful Datasheet Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+/* ══════════════════════════════════════════════
+   CSS VARIABLES — LIGHT & DARK THEMES
+══════════════════════════════════════════════ */
+:root {
+  --bg:         #f4f6f9;
+  --bg2:        #ffffff;
+  --bg3:        #eef1f6;
+  --bg4:        #e4e8f0;
+  --border:     #d0d7e3;
+  --border2:    #b8c2d4;
+  --acc:        #1a56db;
+  --acc2:       #e3521a;
+  --acc3:       #0f7e3e;
+  --acc4:       #7c3aed;
+  --warn:       #b45309;
+  --danger:     #c81e1e;
+  --txt:        #1a2035;
+  --txt2:       #4b5775;
+  --txt3:       #8593b0;
+  --mono:       'DM Mono', monospace;
+  --sans:       'DM Sans', sans-serif;
+  --shadow:     0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+  --shadow-lg:  0 4px 24px rgba(0,0,0,0.10);
+}
+[data-theme="dark"] {
+  --bg:         #0d0f14;
+  --bg2:        #13161e;
+  --bg3:        #1a1e28;
+  --bg4:        #252936;
+  --border:     #252936;
+  --border2:    #2e3448;
+  --acc:        #4a8fff;
+  --acc2:       #ff6b35;
+  --acc3:       #39ff14;
+  --acc4:       #c084fc;
+  --warn:       #fbbf24;
+  --danger:     #f87171;
+  --txt:        #e2e8f0;
+  --txt2:       #8892a4;
+  --txt3:       #4a5568;
+  --shadow:     0 1px 4px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+  --shadow-lg:  0 4px 24px rgba(0,0,0,0.4);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: 13px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background 0.25s, color 0.25s;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px;
+  height: 54px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: var(--shadow);
+  transition: background 0.25s, border-color 0.25s;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-mark {
+  width: 30px; height: 30px;
+  border: 2px solid var(--acc);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  background: rgba(26,86,219,0.08);
+}
+[data-theme="dark"] .logo-mark { background: rgba(74,143,255,0.08); }
+.logo-mark::after {
+  content: '';
+  position: absolute;
+  width: 10px; height: 10px;
+  background: var(--acc);
+  border-radius: 50%;
+  animation: pulse 2s ease infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.65)} }
+.logo-text { font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: 2px; color: var(--acc); }
+.logo-sub  { font-family: var(--mono); font-size: 9px; color: var(--txt3); letter-spacing: 1.5px; }
+
+.header-right { display: flex; align-items: center; gap: 10px; }
+
+/* Theme toggle */
+.theme-toggle {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--txt2);
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  user-select: none;
+}
+.theme-toggle:hover { border-color: var(--acc); color: var(--acc); }
+.toggle-icon { font-size: 13px; line-height: 1; }
+
+.live-badge {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px; color: var(--acc3);
+  letter-spacing: 1px;
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--acc3);
+  animation: blink 1.2s ease infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+#simClock { font-family: var(--mono); font-size: 11px; color: var(--txt2); }
+
+.hbtn {
+  padding: 5px 13px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+  border-radius: 5px; border: 1px solid var(--border2);
+  background: transparent; color: var(--txt2);
+  cursor: pointer; transition: all 0.15s; text-transform: uppercase;
+}
+.hbtn:hover { border-color: var(--acc); color: var(--acc); background: rgba(26,86,219,0.06); }
+[data-theme="dark"] .hbtn:hover { background: rgba(74,143,255,0.08); }
+.hbtn.running { border-color: var(--acc3); color: var(--acc3); background: rgba(15,126,62,0.06); }
+[data-theme="dark"] .hbtn.running { background: rgba(57,255,20,0.07); }
+.hbtn.danger { border-color: var(--danger); color: var(--danger); }
+.hbtn.danger:hover { background: rgba(200,30,30,0.07); }
+
+/* ── LAYOUT ── */
+.layout {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  height: calc(100vh - 54px);
+  overflow: hidden;
+}
+
+/* ── LEFT PANEL ── */
+.left {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  transition: background 0.25s, border-color 0.25s;
+}
+.left::-webkit-scrollbar { width: 4px; }
+.left::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.sec {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+  transition: border-color 0.25s;
+}
+.sec-title {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--acc);
+  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sec-title::before {
+  content: ''; width: 3px; height: 12px;
+  background: var(--acc); border-radius: 2px;
+}
+
+/* Motor selector */
+.sel-label { font-size: 10px; color: var(--txt2); letter-spacing: 1px; margin-bottom: 4px; font-family: var(--mono); }
+.sel-group { margin-bottom: 10px; }
+
+select, input[type="number"] {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--txt);
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.2s, background 0.25s, color 0.25s;
+  -webkit-appearance: none;
+}
+select:focus, input:focus { border-color: var(--acc); box-shadow: 0 0 0 2px rgba(26,86,219,0.12); }
+[data-theme="dark"] select:focus, [data-theme="dark"] input:focus { box-shadow: 0 0 0 2px rgba(74,143,255,0.15); }
+select option { background: var(--bg2); color: var(--txt); }
+
+/* Datasheet param cards */
+.params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 2px; }
+.param-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  transition: background 0.25s, border-color 0.25s;
+}
+.param-card-label { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1.5px; text-transform: uppercase; }
+.param-card-val { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--acc); margin-top: 2px; }
+.param-card-unit { font-size: 9px; color: var(--txt3); }
+
+/* Note box */
+.note-box {
+  background: rgba(26,86,219,0.06);
+  border: 1px solid rgba(26,86,219,0.2);
+  border-radius: 5px;
+  padding: 8px 10px;
+  font-size: 10px;
+  color: var(--txt2);
+  line-height: 1.6;
+  margin-top: 8px;
+  font-family: var(--mono);
+}
+[data-theme="dark"] .note-box { background: rgba(74,143,255,0.07); border-color: rgba(74,143,255,0.2); }
+.note-box b { color: var(--acc); }
+
+/* Variable controls */
+.ctrl { margin-bottom: 12px; }
+.ctrl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.ctrl-name { font-size: 11px; color: var(--txt2); font-weight: 500; }
+.ctrl-val { font-family: var(--mono); font-size: 12px; color: var(--acc); font-weight: 500; }
+.ctrl-sub { font-family: var(--mono); font-size: 9px; color: var(--txt3); margin-top: 2px; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%; height: 3px;
+  background: var(--bg4);
+  border: none;
+  border-radius: 2px; outline: none;
+  cursor: pointer;
+  transition: background 0.25s;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 1px 4px rgba(26,86,219,0.4);
+  cursor: pointer; transition: transform 0.1s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+.range-row { display: flex; align-items: center; gap: 8px; }
+.range-row input[type="number"] { width: 70px; flex-shrink: 0; }
+
+/* Torque limit warning */
+.torque-warn {
+  background: rgba(200,30,30,0.07);
+  border: 1px solid rgba(200,30,30,0.25);
+  border-radius: 5px;
+  padding: 7px 10px;
+  font-size: 10px;
+  color: var(--danger);
+  font-family: var(--mono);
+  margin-top: 8px;
+  display: none;
+}
+.torque-warn.visible { display: block; }
+
+/* ── RIGHT PANEL ── */
+.right {
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+  transition: background 0.25s;
+}
+
+/* Top: motor viz + gauges */
+.right-top {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+  min-height: 0;
+}
+
+/* Viz row */
+.viz-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: background 0.25s, border-color 0.25s;
+}
+.card-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--txt3);
+  transition: background 0.25s, border-color 0.25s;
+}
+.card-body {
+  position: relative;
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  height: 240px;
+  overflow: hidden;
+  transition: background 0.25s;
+}
+.card-body canvas { display: block; max-width: 100%; max-height: 100%; }
+
+/* Status chips */
+.chips { display: flex; gap: 5px; }
+.chip {
+  padding: 2px 7px;
+  font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+  border-radius: 3px; border: 1px solid transparent;
+  opacity: 0; transition: opacity 0.3s;
+}
+.chip.on { opacity: 1; }
+.chip-stall { border-color: var(--danger); color: var(--danger); background: rgba(200,30,30,0.07); }
+.chip-over  { border-color: var(--warn);   color: var(--warn);   background: rgba(180,83,9,0.07); }
+.chip-run   { border-color: var(--acc3);   color: var(--acc3);   background: rgba(15,126,62,0.07); }
+[data-theme="dark"] .chip-stall { background: rgba(248,113,113,0.1); }
+[data-theme="dark"] .chip-over  { background: rgba(251,191,36,0.1); }
+[data-theme="dark"] .chip-run   { background: rgba(57,255,20,0.07); }
+
+/* Gauges */
+.gauges-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.gauge-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px 12px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: background 0.25s, border-color 0.25s;
+}
+.gauge-label { font-family: var(--mono); font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--txt3); margin-bottom: 3px; }
+.gauge-formula { font-family: var(--mono); font-size: 9px; color: var(--acc); margin-bottom: 2px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gauge-vars { font-family: var(--mono); font-size: 8px; color: var(--txt3); margin-bottom: 4px; line-height: 1.5; }
+.gauge-val { font-family: var(--mono); font-size: 18px; font-weight: 500; transition: color 0.3s; }
+.gauge-unit { font-family: var(--mono); font-size: 9px; color: var(--txt3); margin-top: 1px; }
+
+/* Operating point panel */
+.op-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.op-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 5px; padding: 7px 10px;
+  transition: background 0.25s, border-color 0.25s;
+}
+.op-label { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1px; text-transform: uppercase; }
+.op-val { font-family: var(--mono); font-size: 12px; color: var(--txt); font-weight: 500; margin-top: 2px; }
+
+/* Bottom graphs panel */
+.graphs-panel {
+  height: 240px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+  transition: background 0.25s, border-color 0.25s;
+}
+.graphs-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--txt3); text-transform: uppercase;
+  transition: border-color 0.25s;
+}
+.graphs-row { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.graph-cell {
+  flex: 1; padding: 6px 10px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  min-width: 0;
+  transition: border-color 0.25s;
+}
+.graph-cell:last-child { border-right: none; }
+.graph-title { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 1px; flex-shrink: 0; }
+.graph-axis-y { color: var(--acc); font-size: 7px; letter-spacing: 0; font-style: normal; margin-left: 3px; opacity: 0.7; }
+.graph-formula { font-family: var(--mono); font-size: 7.5px; color: var(--acc); opacity: 0.72; margin-bottom: 2px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.graph-axis-x { font-family: var(--mono); font-size: 7px; color: var(--txt3); text-align: center; flex-shrink: 0; margin-top: 1px; letter-spacing: 0.5px; }
+.graph-cell canvas { flex: 1; min-height: 0; width: 100% !important; }
+
+/* Toast warnings */
+#warnPanel {
+  position: fixed; bottom: 18px; right: 18px;
+  max-width: 300px; z-index: 1000;
+  display: flex; flex-direction: column; gap: 6px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--bg2);
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--mono); font-size: 11px; color: var(--warn);
+  animation: slideIn 0.3s ease;
+  box-shadow: var(--shadow-lg);
+}
+.toast.err { border-color: var(--danger); color: var(--danger); }
+@keyframes slideIn { from{transform:translateX(20px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+/* Scrollbar for right-top */
+.right-top::-webkit-scrollbar { width: 4px; }
+.right-top::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body data-theme="light">
+
+<header>
+  <div class="logo">
+    <div class="logo-mark"></div>
+    <div>
+      <div class="logo-text">POLOLU MMG</div>
+      <div class="logo-sub">Simulator </div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot" id="liveDot"></div>
+      <span>LIVE</span>
+    </div>
+    <span id="simClock">t = 0.000 s</span>
+    <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+      <span class="toggle-icon" id="themeIcon">☀️</span>
+      <span id="themeLabel">LIGHT</span>
+    </div>
+    <button class="hbtn running" id="btnPause">⏸ PAUSE</button>
+    <button class="hbtn danger" id="btnReset">↺ RESET</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ═══ LEFT PANEL ═══ -->
+  <div class="left">
+
+    <!-- Motor Selection -->
+    <div class="sec">
+      <div class="sec-title">Motor Selection</div>
+      <div class="sel-group">
+        <div class="sel-label">WINDING TYPE</div>
+        <select id="selType" onchange="onMotorChange()">
+          <option value="LP6">LP 6V — Low Power, Precious Metal Brushes</option>
+          <option value="MP6">MP 6V — Medium Power, Precious Metal Brushes</option>
+          <option value="HP6" selected>HP 6V — High Power, Precious Metal Brushes</option>
+          <option value="HPCB6">HPCB 6V — High Power, Carbon Brushes</option>
+          <option value="HPCB12">HPCB 12V — High Power, Carbon Brushes</option>
+        </select>
+      </div>
+      <div class="sel-group">
+        <div class="sel-label">GEAR RATIO</div>
+        <select id="selGear" onchange="onMotorChange()">
+          <option value="10">10:1 (exact 9.9615:1)</option>
+          <option value="15">15:1 (exact 15.2488:1)</option>
+          <option value="30" selected>30:1 (exact 29.8609:1)</option>
+          <option value="50">50:1 (exact 51.4462:1)</option>
+          <option value="75">75:1 (exact 75.8126:1)</option>
+          <option value="100">100:1 (exact 100.3700:1)</option>
+          <option value="150">150:1 (exact 150.5828:1)</option>
+          <option value="210">210:1 (exact 210.5906:1)</option>
+          <option value="250">250:1 (exact 248.9792:1)</option>
+          <option value="298">298:1 (exact 297.9238:1)</option>
+          <option value="380">380:1 (exact 379.17:1)</option>
+          <option value="1000">1000:1 (exact 986.4064:1)</option>
+        </select>
+      </div>
+      <div class="note-box" id="brushNote"></div>
+    </div>
+
+    <!-- Datasheet Fixed Parameters -->
+    <div class="sec">
+      <div class="sec-title">Datasheet Parameters</div>
+      <div class="params-grid">
+        <div class="param-card">
+          <div class="param-card-label">No-Load Speed</div>
+          <div class="param-card-val" id="dsNoLoadSpeed">—</div>
+          <div class="param-card-unit">RPM</div>
+        </div>
+        <div class="param-card">
+          <div class="param-card-label">No-Load Current</div>
+          <div class="param-card-val" id="dsNoLoadI">—</div>
+          <div class="param-card-unit">A</div>
+        </div>
+        <div class="param-card">
+          <div class="param-card-label">Stall Torque</div>
+          <div class="param-card-val" id="dsStallTau">—</div>
+          <div class="param-card-unit">kg·mm</div>
+        </div>
+        <div class="param-card">
+          <div class="param-card-label">Stall Current</div>
+          <div class="param-card-val" id="dsStallI">—</div>
+          <div class="param-card-unit">A</div>
+        </div>
+        <div class="param-card">
+          <div class="param-card-label">Max Efficiency</div>
+          <div class="param-card-val" id="dsMaxEff">—</div>
+          <div class="param-card-unit">%</div>
+        </div>
+        <div class="param-card">
+          <div class="param-card-label">Max Power</div>
+          <div class="param-card-val" id="dsMaxPow">—</div>
+          <div class="param-card-unit">W</div>
+        </div>
+        <div class="param-card">
+          <div class="param-card-label">Rated Voltage</div>
+          <div class="param-card-val" id="dsVoltage">—</div>
+          <div class="param-card-unit">V</div>
+        </div>
+        <div class="param-card">
+          <div class="param-card-label">Torque Limit</div>
+          <div class="param-card-val" id="dsTauLimit">—</div>
+          <div class="param-card-unit">kg·mm</div>
+        </div>
+      </div>
+      <div class="note-box" style="margin-top:8px">
+        <b>Derived:</b> Kt = V / (ω₀·R) · (1 − I₀·R/V)<br>
+        Ke = (V − I₀·R) / ω₀ &nbsp;|&nbsp; R = V / I_stall
+      </div>
+    </div>
+
+    <!-- Variable Controls -->
+    <div class="sec">
+      <div class="sec-title">Operating Controls</div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-name">Supply Voltage</span>
+          <span class="ctrl-val" id="vV">6.00 V</span>
+        </div>
+        <div class="range-row">
+          <input type="range" id="slV" min="0" max="12" step="0.1" value="6" oninput="onCtrl('V',this.value)">
+          <input type="number" id="numV" min="0" max="12" step="0.1" value="6" oninput="onCtrl('V',this.value)">
+        </div>
+        <div class="ctrl-sub" id="pwmInfo"></div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-name">PWM Duty Cycle</span>
+          <span class="ctrl-val" id="vPWM">100%</span>
+        </div>
+        <div class="range-row">
+          <input type="range" id="slPWM" min="0" max="100" step="1" value="100" oninput="onCtrl('PWM',this.value)">
+          <input type="number" id="numPWM" min="0" max="100" step="1" value="100" oninput="onCtrl('PWM',this.value)">
+        </div>
+        <div class="ctrl-sub" id="veffInfo">Effective V = 6.00 V</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-name">Output Load Torque</span>
+          <span class="ctrl-val" id="vTL">0.000 N·m</span>
+        </div>
+        <div class="range-row">
+          <input type="range" id="slTL" min="0" max="0.1" step="0.0001" value="0" oninput="onCtrl('TL',this.value)">
+          <input type="number" id="numTL" min="0" max="0.1" step="0.0001" value="0" oninput="onCtrl('TL',this.value)">
+        </div>
+        <div class="ctrl-sub" id="tlKgmm">= 0.00 kg·mm at output</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-name">Ambient Temperature</span>
+          <span class="ctrl-val" id="vTemp">25°C</span>
+        </div>
+        <div class="range-row">
+          <input type="range" id="slTemp" min="-10" max="80" step="1" value="25" oninput="onCtrl('TEMP',this.value)">
+          <input type="number" id="numTemp" min="-10" max="80" step="1" value="25" oninput="onCtrl('TEMP',this.value)">
+        </div>
+        <div class="ctrl-sub" id="tempRinfo">R correction: ×1.000 (ref 25°C)</div>
+      </div>
+
+      <div class="torque-warn" id="torqueWarn">
+        ⚠ Load exceeds recommended limit! Risk of gearbox damage.
+      </div>
+    </div>
+
+    <!-- Thermal Info -->
+    <div class="sec">
+      <div class="sec-title">Thermal Model</div>
+      <div class="params-grid">
+        <div class="param-card">
+          <div class="param-card-label">Motor Temp</div>
+          <div class="param-card-val" id="motorTemp">25.0</div>
+          <div class="param-card-unit">°C</div>
+        </div>
+        <div class="param-card">
+          <div class="param-card-label">Effective R</div>
+          <div class="param-card-val" id="rCurrent">—</div>
+          <div class="param-card-unit">Ω</div>
+        </div>
+      </div>
+      <div class="note-box" style="margin-top:8px">
+        <b>Cu temp coeff:</b> α = 0.00393 /°C<br>
+        R(T) = R₂₅ × (1 + α·(T−25))<br>
+        Thermal rise: P_cu × Rth (Rth ≈ 15 °C/W)
+      </div>
+    </div>
+
+  </div><!-- end left -->
+
+  <!-- ═══ RIGHT PANEL ═══ -->
+  <div class="right">
+    <div class="right-top">
+
+      <!-- Visualizations -->
+      <!-- Hidden 2D canvas still needed by drawMotor logic -->
+      <canvas id="motorCanvas" width="460" height="230" style="display:none"></canvas>
+
+      <div class="viz-row">
+        <!-- 3D Motor Preview -->
+        <div class="card">
+          <div class="card-hdr">
+            <span>3D Motor Preview</span>
+            <div class="chips">
+              <div class="chip chip-stall" id="chipStall">⚡ STALL</div>
+              <div class="chip chip-over"  id="chipOver">🌡 OVERHEAT</div>
+              <div class="chip chip-run"   id="chipRun">◉ RUNNING</div>
+            </div>
+          </div>
+          <div class="card-body" id="motor3dContainer" style="cursor:grab;overflow:hidden;"></div>
+        </div>
+
+        <!-- T-S Curve -->
+        <div class="card">
+          <div class="card-hdr">
+            <span>Torque–Speed Curve (Datasheet)</span>
+            <span style="font-size:9px;color:var(--acc)">◆ LIVE OP. POINT</span>
+          </div>
+          <div class="card-body">
+            <canvas id="tsCurveCanvas" width="460" height="230"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gauges Row 1 -->
+      <div class="gauges-grid">
+        <div class="gauge-card">
+          <div class="gauge-label">Motor Speed</div>
+          <div class="gauge-formula">ω · 60 / 2π</div>
+          <div class="gauge-vars">ω = shaft angular velocity (rad/s)</div>
+          <div class="gauge-val" id="gMotorSpeed" style="color:var(--acc)">0.0</div>
+          <div class="gauge-unit">RPM</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-label">Output Speed</div>
+          <div class="gauge-formula">ω / GR · 60/2π</div>
+          <div class="gauge-vars">GR = exact gear ratio (e.g. 29.86)</div>
+          <div class="gauge-val" id="gOutRPM" style="color:var(--acc4)">0.0</div>
+          <div class="gauge-unit">RPM</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-label">Current</div>
+          <div class="gauge-formula">(V − Ke·ω) / R(T)</div>
+          <div class="gauge-vars">Ke = back-EMF const (V·s/rad) | R(T) = resistance at temp T</div>
+          <div class="gauge-val" id="gCurrent" style="color:var(--acc2)">0.000</div>
+          <div class="gauge-unit">A</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-label">Motor Torque</div>
+          <div class="gauge-formula">Kt · i × 1000</div>
+          <div class="gauge-vars">Kt = torque const (N·m/A) | i = winding current (A)</div>
+          <div class="gauge-val" id="gTorque" style="color:var(--acc4)">0.00</div>
+          <div class="gauge-unit">mN·m</div>
+        </div>
+      </div>
+
+      <!-- Gauges Row 2 -->
+      <div class="gauges-grid">
+        <div class="gauge-card">
+          <div class="gauge-label">P_in</div>
+          <div class="gauge-formula">V_eff · i</div>
+          <div class="gauge-vars">V_eff = V × PWM% | i = current (A)</div>
+          <div class="gauge-val" id="gPin" style="color:var(--warn)">0.000</div>
+          <div class="gauge-unit">W</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-label">P_out</div>
+          <div class="gauge-formula">τ_load · ω_out</div>
+          <div class="gauge-vars">τ_load = output load torque (N·m) | ω_out = ω/GR</div>
+          <div class="gauge-val" id="gPout" style="color:var(--acc3)">0.000</div>
+          <div class="gauge-unit">W</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-label">Cu Loss</div>
+          <div class="gauge-formula">i² · R(T)</div>
+          <div class="gauge-vars">R(T) = R₂₅ × (1 + α·(T−25)) | α = 0.00393/°C</div>
+          <div class="gauge-val" id="gCuLoss" style="color:var(--danger)">0.000</div>
+          <div class="gauge-unit">W</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-label">Efficiency</div>
+          <div class="gauge-formula">P_out / P_in · 100</div>
+          <div class="gauge-vars">0% when no load torque applied</div>
+          <div class="gauge-val" id="gEff" style="color:var(--acc3)">0.0</div>
+          <div class="gauge-unit">%</div>
+        </div>
+      </div>
+
+      <!-- Operating Point -->
+      <div class="card">
+        <div class="card-hdr"><span>Operating Point Analysis</span></div>
+        <div style="padding:10px">
+          <div class="op-grid">
+            <div class="op-card">
+              <div class="op-label">Output Torque</div>
+              <div class="op-val" id="opTout">—</div>
+            </div>
+            <div class="op-card">
+              <div class="op-label">Output Torque (kg·mm)</div>
+              <div class="op-val" id="opToutKg">—</div>
+            </div>
+            <div class="op-card">
+              <div class="op-label">BEMF</div>
+              <div class="op-val" id="opBemf">—</div>
+            </div>
+            <div class="op-card">
+              <div class="op-label">% of Stall Torque</div>
+              <div class="op-val" id="opPctStall">—</div>
+            </div>
+            <div class="op-card">
+              <div class="op-label">% of No-Load Speed</div>
+              <div class="op-val" id="opPctSpeed">—</div>
+            </div>
+            <div class="op-card">
+              <div class="op-label">Effective Voltage</div>
+              <div class="op-val" id="opVeff">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end right-top -->
+
+    <!-- Bottom Graphs -->
+    <div class="graphs-panel">
+      <div class="graphs-hdr">
+        <span style="width:3px;height:10px;background:var(--acc);display:inline-block;border-radius:2px"></span>
+        Time-Series Graphs
+      </div>
+      <div class="graphs-row">
+        <div class="graph-cell">
+          <div class="graph-title">Speed (RPM) <span class="graph-axis-y">Y</span></div>
+          <div class="graph-formula">ω = (V − i·R) / Kₑ &nbsp;·&nbsp; 60/2π</div>
+          <canvas id="chartSpeed"></canvas>
+          <div class="graph-axis-x">X — Time (s)</div>
+        </div>
+        <div class="graph-cell">
+          <div class="graph-title">Current (A) <span class="graph-axis-y">Y</span></div>
+          <div class="graph-formula">i = (V − Kₑ·ω) / R(T)</div>
+          <canvas id="chartCurrent"></canvas>
+          <div class="graph-axis-x">X — Time (s)</div>
+        </div>
+        <div class="graph-cell">
+          <div class="graph-title">Torque (mN·m) <span class="graph-axis-y">Y</span></div>
+          <div class="graph-formula">τ = Kₜ · i &nbsp;·&nbsp; 1000</div>
+          <canvas id="chartTorque"></canvas>
+          <div class="graph-axis-x">X — Time (s)</div>
+        </div>
+        <div class="graph-cell">
+          <div class="graph-title">Efficiency (%) <span class="graph-axis-y">Y</span></div>
+          <div class="graph-formula">η = P_out / P_in · 100</div>
+          <canvas id="chartEff"></canvas>
+          <div class="graph-axis-x">X — Time (s)</div>
+        </div>
+        <div class="graph-cell">
+          <div class="graph-title">Power (W) <span class="graph-axis-y">Y</span></div>
+          <div class="graph-formula">P_in = V·i &nbsp;|&nbsp; P_out = τ_out·ω_out</div>
+          <canvas id="chartPower"></canvas>
+          <div class="graph-axis-x">X — Time (s)</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end right -->
+</div>
+
+<div id="warnPanel"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// THEME TOGGLE
+// ═══════════════════════════════════════════════════════
+function toggleTheme() {
+  const body = document.body;
+  const isDark = body.getAttribute('data-theme') === 'dark';
+  body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
+  document.getElementById('themeLabel').textContent = isDark ? 'LIGHT' : 'DARK';
+  // Redraw charts with new colors
+  Object.values(charts).forEach(c => c && c.update());
+  drawTSCurve();
+}
+
+// ═══════════════════════════════════════════════════════
+// DATASHEET DATABASE — ALL VALUES DIRECTLY FROM DATASHEET
+// Keys: type_gear, values from datasheet Table (page 4)
+// Units: rpm, A, kg·mm, W, %
+// f(τ) = a − b·τ for speed(rpm), f(τ) = c + d·τ for current(A)
+// ═══════════════════════════════════════════════════════
+const DS = {
+  // LP 6V
+  LP6_10:   { V:6, noLoadRPM:1300, noLoadI:null, stallTau:1.0,  stallI:0.36, maxEff:null, maxEffTau:null,  maxEffPow:null,  maxPow:0.37, speedA:null,  speedB:null,  currC:null,   currD:null },
+  LP6_15:   { V:6, noLoadRPM:860,  noLoadI:0.028,stallTau:1.7,  stallI:0.36, maxEff:40,   maxEffTau:0.40,  maxEffPow:0.27,  maxPow:0.37, speedA:850,   speedB:500,   currC:0.035,  currD:0.19 },
+  LP6_30:   { V:6, noLoadRPM:450,  noLoadI:0.033,stallTau:2.9,  stallI:0.36, maxEff:34,   maxEffTau:0.66,  maxEffPow:0.22,  maxPow:0.31, speedA:420,   speedB:150,   currC:0.032,  currD:0.11 },
+  LP6_50:   { V:6, noLoadRPM:270,  noLoadI:0.028,stallTau:4.4,  stallI:0.36, maxEff:34,   maxEffTau:0.95,  maxEffPow:0.20,  maxPow:0.29, speedA:260,   speedB:59,    currC:0.027,  currD:0.075 },
+  LP6_75:   { V:6, noLoadRPM:180,  noLoadI:0.027,stallTau:6.4,  stallI:0.37, maxEff:33,   maxEffTau:1.3,   maxEffPow:0.19,  maxPow:0.29, speedA:180,   speedB:27,    currC:0.025,  currD:0.054 },
+  LP6_100:  { V:6, noLoadRPM:130,  noLoadI:0.028,stallTau:7.4,  stallI:0.36, maxEff:28,   maxEffTau:1.7,   maxEffPow:0.17,  maxPow:0.25, speedA:130,   speedB:17,    currC:0.031,  currD:0.044 },
+  LP6_150:  { V:6, noLoadRPM:90,   noLoadI:0.029,stallTau:11,   stallI:0.37, maxEff:28,   maxEffTau:2.6,   maxEffPow:0.18,  maxPow:0.25, speedA:87,    speedB:7.6,   currC:0.032,  currD:0.029 },
+  LP6_210:  { V:6, noLoadRPM:65,   noLoadI:0.027,stallTau:16,   stallI:0.35, maxEff:27,   maxEffTau:4.1,   maxEffPow:0.19,  maxPow:0.25, speedA:61,    speedB:3.7,   currC:0.040,  currD:0.019 },
+  LP6_250:  { V:6, noLoadRPM:54,   noLoadI:0.027,stallTau:17,   stallI:0.34, maxEff:26,   maxEffTau:4.2,   maxEffPow:0.17,  maxPow:0.23, speedA:51,    speedB:3.0,   currC:0.035,  currD:0.017 },
+  LP6_298:  { V:6, noLoadRPM:45,   noLoadI:0.028,stallTau:20,   stallI:0.33, maxEff:27,   maxEffTau:4.4,   maxEffPow:0.15,  maxPow:0.22, speedA:44,    speedB:2.2,   currC:0.027,  currD:0.015 },
+  LP6_380:  { V:6, noLoadRPM:36,   noLoadI:0.025,stallTau:29,   stallI:0.35, maxEff:34,   maxEffTau:5.4,   maxEffPow:0.16,  maxPow:0.27, speedA:36,    speedB:1.2,   currC:0.018,  currD:0.011 },
+  LP6_1000: { V:6, noLoadRPM:13,   noLoadI:0.028,stallTau:55,   stallI:0.33, maxEff:24,   maxEffTau:12,    maxEffPow:0.12,  maxPow:null, speedA:13,    speedB:0.24,  currC:0.023,  currD:0.0056 },
+  // MP 6V
+  MP6_10:   { V:6, noLoadRPM:2200, noLoadI:null, stallTau:1.1,  stallI:0.67, maxEff:null, maxEffTau:null,  maxEffPow:null,  maxPow:0.70, speedA:null,  speedB:null,  currC:null,   currD:null },
+  MP6_15:   { V:6, noLoadRPM:1400, noLoadI:0.053,stallTau:2.0,  stallI:0.69, maxEff:39,   maxEffTau:0.47,  maxEffPow:0.50,  maxPow:0.70, speedA:1400,  speedB:670,   currC:0.066,  currD:0.31 },
+  MP6_30:   { V:6, noLoadRPM:720,  noLoadI:0.064,stallTau:3.3,  stallI:0.67, maxEff:33,   maxEffTau:0.80,  maxEffPow:0.41,  maxPow:0.57, speedA:660,   speedB:200,   currC:0.066,  currD:0.18 },
+  MP6_50:   { V:6, noLoadRPM:420,  noLoadI:0.052,stallTau:5.4,  stallI:0.67, maxEff:33,   maxEffTau:1.2,   maxEffPow:0.38,  maxPow:0.55, speedA:390,   speedB:72,    currC:0.053,  currD:0.11 },
+  MP6_75:   { V:6, noLoadRPM:290,  noLoadI:0.054,stallTau:7.8,  stallI:0.67, maxEff:34,   maxEffTau:1.6,   maxEffPow:0.35,  maxPow:0.54, speedA:270,   speedB:35,    currC:0.044,  currD:0.080 },
+  MP6_100:  { V:6, noLoadRPM:220,  noLoadI:0.048,stallTau:9.4,  stallI:0.66, maxEff:33,   maxEffTau:1.9,   maxEffPow:0.32,  maxPow:0.50, speedA:210,   speedB:22,    currC:0.042,  currD:0.065 },
+  MP6_150:  { V:6, noLoadRPM:150,  noLoadI:0.051,stallTau:13,   stallI:0.63, maxEff:33,   maxEffTau:2.6,   maxEffPow:0.30,  maxPow:0.48, speedA:140,   speedB:11,    currC:0.038,  currD:0.045 },
+  MP6_210:  { V:6, noLoadRPM:100,  noLoadI:0.049,stallTau:17,   stallI:0.64, maxEff:31,   maxEffTau:3.4,   maxEffPow:0.29,  maxPow:0.46, speedA:100,   speedB:6.0,   currC:0.039,  currD:0.035 },
+  MP6_250:  { V:6, noLoadRPM:88,   noLoadI:0.055,stallTau:22,   stallI:0.65, maxEff:31,   maxEffTau:4.5,   maxEffPow:0.31,  maxPow:0.48, speedA:87,    speedB:4.0,   currC:0.043,  currD:0.028 },
+  MP6_298:  { V:6, noLoadRPM:73,   noLoadI:0.057,stallTau:24,   stallI:0.64, maxEff:29,   maxEffTau:5.0,   maxEffPow:0.29,  maxPow:0.44, speedA:70,    speedB:2.9,   currC:0.043,  currD:0.025 },
+  MP6_380:  { V:6, noLoadRPM:57,   noLoadI:0.054,stallTau:36,   stallI:0.68, maxEff:34,   maxEffTau:6.9,   maxEffPow:0.33,  maxPow:0.53, speedA:56,    speedB:1.6,   currC:0.038,  currD:0.018 },
+  MP6_1000: { V:6, noLoadRPM:22,   noLoadI:0.054,stallTau:67,   stallI:0.66, maxEff:24,   maxEffTau:13,    maxEffPow:0.23,  maxPow:null, speedA:21,    speedB:0.32,  currC:0.037,  currD:0.0093 },
+  // HP 6V
+  HP6_10:   { V:6, noLoadRPM:3100, noLoadI:0.085,stallTau:2.2,  stallI:1.6,  maxEff:43,   maxEffTau:0.46,  maxEffPow:1.1,   maxPow:1.6,  speedA:2900,  speedB:1400,  currC:0.11,   currD:0.68 },
+  HP6_15:   { V:6, noLoadRPM:2000, noLoadI:0.084,stallTau:3.0,  stallI:1.6,  maxEff:42,   maxEffTau:0.58,  maxEffPow:0.95,  maxPow:1.5,  speedA:2000,  speedB:650,   currC:0.090,  currD:0.49 },
+  HP6_30:   { V:6, noLoadRPM:1000, noLoadI:0.088,stallTau:5.7,  stallI:1.6,  maxEff:41,   maxEffTau:1.0,   maxEffPow:0.89,  maxPow:1.5,  speedA:1000,  speedB:180,   currC:0.081,  currD:0.27 },
+  HP6_50:   { V:6, noLoadRPM:590,  noLoadI:0.084,stallTau:8.6,  stallI:1.6,  maxEff:38,   maxEffTau:1.5,   maxEffPow:0.75,  maxPow:1.3,  speedA:590,   speedB:68,    currC:0.067,  currD:0.17 },
+  HP6_75:   { V:6, noLoadRPM:410,  noLoadI:0.10, stallTau:13,   stallI:1.6,  maxEff:40,   maxEffTau:2.3,   maxEffPow:0.80,  maxPow:1.4,  speedA:410,   speedB:32,    currC:0.073,  currD:0.11 },
+  HP6_100:  { V:6, noLoadRPM:310,  noLoadI:0.10, stallTau:17,   stallI:1.6,  maxEff:37,   maxEffTau:2.9,   maxEffPow:0.73,  maxPow:1.3,  speedA:300,   speedB:18,    currC:0.067,  currD:0.091 },
+  HP6_150:  { V:6, noLoadRPM:210,  noLoadI:0.087,stallTau:24,   stallI:1.6,  maxEff:37,   maxEffTau:3.9,   maxEffPow:0.68,  maxPow:1.2,  speedA:200,   speedB:8.5,   currC:0.060,  currD:0.063 },
+  HP6_210:  { V:6, noLoadRPM:150,  noLoadI:0.081,stallTau:30,   stallI:1.6,  maxEff:32,   maxEffTau:5.0,   maxEffPow:0.62,  maxPow:1.1,  speedA:140,   speedB:4.9,   currC:0.066,  currD:0.051 },
+  HP6_250:  { V:6, noLoadRPM:120,  noLoadI:0.081,stallTau:34,   stallI:1.6,  maxEff:32,   maxEffTau:5.5,   maxEffPow:0.59,  maxPow:1.1,  speedA:120,   speedB:3.7,   currC:0.059,  currD:0.044 },
+  HP6_298:  { V:6, noLoadRPM:100,  noLoadI:0.081,stallTau:40,   stallI:1.6,  maxEff:31,   maxEffTau:6.5,   maxEffPow:0.58,  maxPow:1.1,  speedA:100,   speedB:2.6,   currC:0.059,  currD:0.038 },
+  HP6_380:  { V:6, noLoadRPM:84,   noLoadI:0.077,stallTau:55,   stallI:1.6,  maxEff:36,   maxEffTau:8.4,   maxEffPow:0.61,  maxPow:null, speedA:83,    speedB:1.5,   currC:0.052,  currD:0.028 },
+  HP6_1000: { V:6, noLoadRPM:31,   noLoadI:0.084,stallTau:120,  stallI:1.6,  maxEff:28,   maxEffTau:20,    maxEffPow:0.53,  maxPow:null, speedA:31,    speedB:0.26,  currC:0.063,  currD:0.013 },
+  // HPCB 6V
+  HPCB6_10:   { V:6, noLoadRPM:3300, noLoadI:0.14, stallTau:1.7,  stallI:1.5,  maxEff:33,   maxEffTau:0.42,  maxEffPow:1.0,   maxPow:1.3,  speedA:3100,  speedB:1800,  currC:0.17,   currD:0.82 },
+  HPCB6_15:   { V:6, noLoadRPM:2100, noLoadI:0.13, stallTau:2.5,  stallI:1.5,  maxEff:32,   maxEffTau:0.60,  maxEffPow:0.94,  maxPow:1.3,  speedA:2000,  speedB:820,   currC:0.16,   currD:0.56 },
+  HPCB6_30:   { V:6, noLoadRPM:1100, noLoadI:0.13, stallTau:4.5,  stallI:1.5,  maxEff:33,   maxEffTau:1.0,   maxEffPow:0.85,  maxPow:1.2,  speedA:1100,  speedB:240,   currC:0.12,   currD:0.31 },
+  HPCB6_50:   { V:6, noLoadRPM:650,  noLoadI:0.13, stallTau:7.4,  stallI:1.5,  maxEff:32,   maxEffTau:1.6,   maxEffPow:0.80,  maxPow:1.2,  speedA:620,   speedB:85,    currC:0.11,   currD:0.19 },
+  HPCB6_75:   { V:6, noLoadRPM:430,  noLoadI:0.13, stallTau:11,   stallI:1.5,  maxEff:34,   maxEffTau:2.5,   maxEffPow:0.87,  maxPow:1.3,  speedA:430,   speedB:38,    currC:0.12,   currD:0.12 },
+  HPCB6_100:  { V:6, noLoadRPM:330,  noLoadI:0.13, stallTau:16,   stallI:1.7,  maxEff:33,   maxEffTau:3.3,   maxEffPow:0.86,  maxPow:1.3,  speedA:320,   speedB:21,    currC:0.11,   currD:0.10 },
+  HPCB6_150:  { V:6, noLoadRPM:220,  noLoadI:0.13, stallTau:20,   stallI:1.5,  maxEff:31,   maxEffTau:4.1,   maxEffPow:0.73,  maxPow:1.1,  speedA:220,   speedB:11,    currC:0.10,   currD:0.071 },
+  HPCB6_210:  { V:6, noLoadRPM:160,  noLoadI:0.12, stallTau:28,   stallI:1.5,  maxEff:31,   maxEffTau:5.9,   maxEffPow:0.74,  maxPow:1.1,  speedA:160,   speedB:5.5,   currC:0.10,   currD:0.050 },
+  HPCB6_250:  { V:6, noLoadRPM:130,  noLoadI:0.12, stallTau:32,   stallI:1.5,  maxEff:29,   maxEffTau:6.6,   maxEffPow:0.71,  maxPow:1.1,  speedA:130,   speedB:4.1,   currC:0.11,   currD:0.045 },
+  HPCB6_298:  { V:6, noLoadRPM:110,  noLoadI:0.12, stallTau:34,   stallI:1.5,  maxEff:26,   maxEffTau:7.4,   maxEffPow:0.65,  maxPow:1.0,  speedA:110,   speedB:3.2,   currC:0.11,   currD:0.041 },
+  HPCB6_380:  { V:6, noLoadRPM:85,   noLoadI:0.12, stallTau:50,   stallI:1.5,  maxEff:30,   maxEffTau:10,    maxEffPow:0.71,  maxPow:null, speedA:85,    speedB:1.7,   currC:0.10,   currD:0.029 },
+  HPCB6_1000: { V:6, noLoadRPM:33,   noLoadI:0.12, stallTau:110,  stallI:1.6,  maxEff:25,   maxEffTau:22,    maxEffPow:0.59,  maxPow:null, speedA:33,    speedB:0.30,  currC:0.10,   currD:0.013 },
+  // HPCB 12V
+  HPCB12_10:   { V:12,noLoadRPM:3400, noLoadI:0.070,stallTau:1.7,  stallI:0.75, maxEff:37,   maxEffTau:0.43,  maxEffPow:1.1,   maxPow:1.5,  speedA:3300,  speedB:1900,  currC:0.084,  currD:0.38 },
+  HPCB12_15:   { V:12,noLoadRPM:2200, noLoadI:0.073,stallTau:2.5,  stallI:0.73, maxEff:37,   maxEffTau:0.59,  maxEffPow:1.0,   maxPow:1.4,  speedA:2200,  speedB:880,   currC:0.070,  currD:0.27 },
+  HPCB12_30:   { V:12,noLoadRPM:1100, noLoadI:0.070,stallTau:3.9,  stallI:0.71, maxEff:30,   maxEffTau:0.95,  maxEffPow:0.82,  maxPow:1.1,  speedA:1100,  speedB:280,   currC:0.073,  currD:0.16 },
+  HPCB12_50:   { V:12,noLoadRPM:650,  noLoadI:0.071,stallTau:6.7,  stallI:0.72, maxEff:31,   maxEffTau:1.5,   maxEffPow:0.79,  maxPow:1.1,  speedA:650,   speedB:97,    currC:0.065,  currD:0.10 },
+  HPCB12_75:   { V:12,noLoadRPM:450,  noLoadI:0.075,stallTau:10,   stallI:0.72, maxEff:31,   maxEffTau:2.1,   maxEffPow:0.76,  maxPow:1.1,  speedA:440,   speedB:46,    currC:0.056,  currD:0.069 },
+  HPCB12_100:  { V:12,noLoadRPM:330,  noLoadI:0.065,stallTau:13,   stallI:0.72, maxEff:31,   maxEffTau:2.9,   maxEffPow:0.78,  maxPow:1.1,  speedA:340,   speedB:26,    currC:0.060,  currD:0.051 },
+  HPCB12_150:  { V:12,noLoadRPM:220,  noLoadI:0.064,stallTau:18,   stallI:0.72, maxEff:28,   maxEffTau:4.2,   maxEffPow:0.73,  maxPow:1.0,  speedA:220,   speedB:12,    currC:0.066,  currD:0.036 },
+  HPCB12_210:  { V:12,noLoadRPM:160,  noLoadI:0.070,stallTau:25,   stallI:0.72, maxEff:28,   maxEffTau:5.6,   maxEffPow:0.71,  maxPow:1.0,  speedA:160,   speedB:6.3,   currC:0.060,  currD:0.026 },
+  HPCB12_250:  { V:12,noLoadRPM:130,  noLoadI:0.066,stallTau:30,   stallI:0.75, maxEff:29,   maxEffTau:6.6,   maxEffPow:0.72,  maxPow:1.1,  speedA:130,   speedB:4.4,   currC:0.058,  currD:0.023 },
+  HPCB12_298:  { V:12,noLoadRPM:110,  noLoadI:0.065,stallTau:33,   stallI:0.74, maxEff:26,   maxEffTau:7.3,   maxEffPow:0.65,  maxPow:0.95, speedA:110,   speedB:3.4,   currC:0.060,  currD:0.021 },
+  HPCB12_380:  { V:12,noLoadRPM:85,   noLoadI:0.064,stallTau:50,   stallI:0.72, maxEff:31,   maxEffTau:11,    maxEffPow:0.75,  maxPow:null, speedA:86,    speedB:1.7,   currC:0.056,  currD:0.013 },
+  HPCB12_1000: { V:12,noLoadRPM:35,   noLoadI:0.069,stallTau:100,  stallI:0.75, maxEff:25,   maxEffTau:21,    maxEffPow:0.59,  maxPow:null, speedA:35,    speedB:0.34,  currC:0.051,  currD:0.0069 },
+};
+
+// Exact gear ratios from datasheet
+const EXACT_GR = {
+  10:9.9615, 15:15.2488, 30:29.8609, 50:51.4462,
+  75:75.8126, 100:100.37, 150:150.5828, 210:210.5906,
+  250:248.9792, 298:297.9238, 380:379.17, 1000:986.4064
+};
+
+// Torque limits from datasheet
+function getTorqueLimit(gear) {
+  return (gear === 380 || gear === 1000) ? 25 : 20;
+}
+
+// ═══════════════════════════════════════════════════════
+// MOTOR STATE & DERIVED CONSTANTS
+// ═══════════════════════════════════════════════════════
+let M = {};   // derived motor constants
+let C = { V:6, PWM:100, TL_out:0, TEMP:25 };
+let GR = 29.8609;
+let nominalGR = 30;
+let DT = 0.0005;
+let simState = { omega:0, current:0, time:0, angle:0, motorTemp:25 };
+let motorAngle = 0;
+let simRunning = true;
+let lastT = 0;
+let simAccum = 0;
+
+function getVeff() {
+  return C.V * (C.PWM / 100);
+}
+
+function getReff() {
+  const alpha = 0.00393;
+  return M.R * (1 + alpha * (simState.motorTemp - 25));
+}
+
+function deriveConstants(typeKey, gearNominal) {
+  const key = typeKey + '_' + gearNominal;
+  const d = DS[key];
+  if (!d) { console.warn('No datasheet entry:', key); return; }
+
+  GR = EXACT_GR[gearNominal] || gearNominal;
+  nominalGR = gearNominal;
+
+  // Motor-side (before gearbox) angular velocity at no-load
+  const omega0_motor = d.noLoadRPM * 2 * Math.PI / 60; // rad/s
+
+  // Winding resistance from stall current: R = V / I_stall
+  const R = d.V / d.stallI;
+
+  // Back-EMF constant: Ke = (V - I0*R) / omega0
+  const I0 = d.noLoadI || (d.stallI * 0.05); // fallback
+  const Ke = (d.V - I0 * R) / omega0_motor;
+
+  // Torque constant = Ke (for ideal motor, Kt = Ke in SI)
+  const Kt = Ke;
+
+  M = {
+    V:    d.V,
+    R:    R,
+    Ke:   Ke,
+    Kt:   Kt,
+    // Approximate inductance: L ~ R * tau_elec, tau_elec ~ 1ms typical for small motors
+    L:    R * 0.001,
+    // Rotor inertia: estimated from motor size (micro metal: ~1g·cm²)
+    J:    1e-6,
+    // Viscous friction: from no-load current & back-emf
+    Bv:   I0 * Kt / omega0_motor,
+    omega0_motor: omega0_motor,
+    tau_stall_motor: d.stallTau * 9.80665e-3, // kg·mm → N·m
+    stallI: d.stallI,
+    noLoadI: I0,
+    ds: d,
+  };
+
+  // Update UI
+  updateDatasheetUI(d, gearNominal, typeKey);
+  updateSliderMaxes(d);
+}
+
+function updateDatasheetUI(d, gear, typeKey) {
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  set('dsNoLoadSpeed', d.noLoadRPM ? d.noLoadRPM.toLocaleString() : '—');
+  set('dsNoLoadI',     d.noLoadI  != null ? d.noLoadI.toFixed(3) : '—');
+  set('dsStallTau',    d.stallTau != null ? d.stallTau : '—');
+  set('dsStallI',      d.stallI   != null ? d.stallI.toFixed(2)  : '—');
+  set('dsMaxEff',      d.maxEff   != null ? d.maxEff : '—');
+  set('dsMaxPow',      d.maxPow   != null ? d.maxPow.toFixed(2)  : '—');
+  set('dsVoltage',     d.V);
+  set('dsTauLimit',    getTorqueLimit(gear));
+
+  // Brush note
+  const notes = {
+    LP6: 'Precious metal brushes. Shorter life, lower friction, preferred for low-current applications.',
+    MP6: 'Precious metal brushes. Medium power, lower friction than carbon brushes.',
+    HP6: 'Precious metal brushes. High power. Stalling can cause rapid thermal damage in seconds.',
+    HPCB6: 'Carbon brushes (copper-colored terminals). Long life, higher no-load current.',
+    HPCB12: 'Carbon brushes, 12V. Draws ~half the current of HPCB 6V for same performance.',
+  };
+  const bEl = document.getElementById('brushNote');
+  if (bEl) bEl.innerHTML = `<b>${typeKey}:</b> ${notes[typeKey] || ''}`;
+
+  // Nominal voltage for slider
+  const nomV = d.V;
+  const slV = document.getElementById('slV');
+  const numV = document.getElementById('numV');
+  if (slV) { slV.max = nomV; slV.value = Math.min(C.V, nomV); }
+  if (numV) { numV.max = nomV; numV.value = Math.min(C.V, nomV).toFixed(2); }
+  C.V = Math.min(C.V, nomV);
+  document.getElementById('vV').textContent = C.V.toFixed(2) + ' V';
+}
+
+function updateSliderMaxes(d) {
+  // Set TL max to 2× stall torque in N·m for slider range
+  const stallNm = d.stallTau * 9.80665e-3;
+  const slTL = document.getElementById('slTL');
+  const numTL = document.getElementById('numTL');
+  if (slTL) slTL.max = (stallNm * 1.2).toFixed(4);
+  if (numTL) numTL.max = (stallNm * 1.2).toFixed(4);
+}
+
+// ═══════════════════════════════════════════════════════
+// PHYSICS — RK4
+// Uses datasheet T-S curve equations directly for speed/current
+// but also runs proper differential equations for dynamics
+// ═══════════════════════════════════════════════════════
+function motorODE(omega, current, dt) {
+  // Effective voltage accounting for PWM and temperature-corrected R
+  const Veff = getVeff();
+  const Reff = getReff();
+
+  // Electrical: L·di/dt = V - i·R - Ke·ω
+  const diDt = (Veff - current * Reff - M.Ke * omega) / M.L;
+
+  // Torque on rotor (motor shaft)
+  const tau_motor = M.Kt * current;
+
+  // Load torque referred to motor shaft
+  const tau_load_motor = C.TL_out / GR;
+
+  // Mechanical: J·dω/dt = Kt·i - Bv·ω - TL_motor
+  const domDt = (tau_motor - M.Bv * omega - tau_load_motor) / M.J;
+
+  return { diDt, domDt };
+}
+
+function rk4(omega, current, dt) {
+  const k1 = motorODE(omega, current, dt);
+  const k2 = motorODE(omega + k1.domDt*dt/2, current + k1.diDt*dt/2, dt);
+  const k3 = motorODE(omega + k2.domDt*dt/2, current + k2.diDt*dt/2, dt);
+  const k4 = motorODE(omega + k3.domDt*dt, current + k3.diDt*dt, dt);
+
+  let newOmega  = omega   + dt/6*(k1.domDt + 2*k2.domDt + 2*k3.domDt + k4.domDt);
+  let newCurrent= current + dt/6*(k1.diDt  + 2*k2.diDt  + 2*k3.diDt  + k4.diDt);
+
+  // Clamp: no reverse rotation (uni-directional load), no negative current
+  if (newOmega < 0) newOmega = 0;
+  if (newCurrent < 0) newCurrent = 0;
+
+  return { omega: newOmega, current: newCurrent };
+}
+
+// Thermal model
+function thermalStep(dt) {
+  const Reff = getReff();
+  const i = simState.current;
+  const pCu = i * i * Reff;           // copper loss = heat source
+  const Rth = 15;                       // thermal resistance °C/W (typical small motor)
+  const Cth = 5;                        // thermal capacitance J/°C (estimated)
+  const dT = (pCu * Rth - (simState.motorTemp - C.TEMP)) / (Rth * Cth) * dt;
+  simState.motorTemp = Math.max(C.TEMP, simState.motorTemp + dT);
+}
+
+// ═══════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════
+const MAX_POINTS = 300;
+let charts = {};
+
+function getChartColor() {
+  return document.body.getAttribute('data-theme') === 'dark';
+}
+
+function chartDefaults() {
+  const dark = getChartColor();
+  return {
+    gridColor: dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+    tickColor: dark ? '#4a5568' : '#9ba8c0',
+    bgColor:   dark ? '#13161e' : '#ffffff',
+  };
+}
+
+// Minimum Y-axis span per chart — prevents absurd micro-zoom on steady-state drift
+const CHART_MIN_SPAN = {
+  chartSpeed:   50,    // RPM  — at least 50 RPM visible window
+  chartCurrent: 0.02,  // A    — at least 20 mA visible window
+  chartTorque:  0.5,   // mN·m — at least 0.5 mN·m visible window
+  chartEff:     5,     // %    — at least 5% visible window
+  chartPower:   0.05,  // W    — at least 50 mW visible window
+};
+
+function makeChart(id, label, color, datasets) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return null;
+  const defs = chartDefaults();
+  const minSpan = CHART_MIN_SPAN[id] || 1;
+  const ds = datasets || [{
+    label,
+    data: [],
+    borderColor: color,
+    borderWidth: 1.5,
+    pointRadius: 0,
+    tension: 0.2,
+    fill: false,
+  }];
+
+  // Plugin: enforce minimum Y span so steady-state flat lines don't micro-zoom
+  const minSpanPlugin = {
+    id: 'minYSpan_' + id,
+    afterDataLimits(chart) {
+      const yAxis = chart.scales.y;
+      if (!yAxis) return;
+      const span = yAxis.max - yAxis.min;
+      if (span < minSpan) {
+        const mid = (yAxis.max + yAxis.min) / 2;
+        yAxis.min = mid - minSpan / 2;
+        yAxis.max = mid + minSpan / 2;
+        // Never go below zero for naturally non-negative quantities
+        if (yAxis.min < 0 && id !== 'chartEff') {
+          yAxis.min = 0;
+          yAxis.max = minSpan;
+        }
+      }
+    }
+  };
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: ds },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: {
+          display: true,
+          grid: { color: defs.gridColor, lineWidth: 0.5 },
+          ticks: {
+            color: defs.tickColor,
+            font: { size: 7, family: 'DM Mono' },
+            maxTicksLimit: 4,
+            maxRotation: 0,
+            padding: 1,
+          },
+          border: { display: false },
+          title: {
+            display: false,
+          }
+        },
+        y: {
+          display: true,
+          grid: { color: defs.gridColor, lineWidth: 0.5 },
+          ticks: { color: defs.tickColor, font: { size: 8, family: 'DM Mono' }, maxTicksLimit: 4, padding: 2 },
+          border: { display: false },
+        }
+      }
+    },
+    plugins: [minSpanPlugin],
+  });
+}
+
+function pushChart(chart, t, ...vals) {
+  if (!chart) return;
+  chart.data.labels.push(t.toFixed(2));
+  vals.forEach((v, i) => {
+    if (chart.data.datasets[i]) chart.data.datasets[i].data.push(v);
+  });
+  if (chart.data.labels.length > MAX_POINTS) {
+    chart.data.labels.shift();
+    chart.data.datasets.forEach(ds => ds.data.shift());
+  }
+  chart.update('none');
+}
+
+function initCharts() {
+  const acc  = '#1a56db', acc2 = '#e3521a', acc4 = '#7c3aed';
+  const acc3 = '#0f7e3e', warn = '#b45309';
+  charts.speed   = makeChart('chartSpeed',   'Speed',    acc);
+  charts.current = makeChart('chartCurrent', 'Current',  acc2);
+  charts.torque  = makeChart('chartTorque',  'Torque',   acc4);
+  charts.eff     = makeChart('chartEff',     'Eff',      acc3);
+  charts.power   = makeChart('chartPower',   'Power',    warn, [
+    { label:'Pin',  data:[], borderColor: warn, borderWidth:1.5, pointRadius:0, tension:0.2, fill:false },
+    { label:'Pout', data:[], borderColor: acc3, borderWidth:1.5, pointRadius:0, tension:0.2, fill:false },
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════
+// 2D MOTOR ANIMATION
+// ═══════════════════════════════════════════════════════
+function drawMotor(omega_rad, current, tau, eff) {
+  const canvas = document.getElementById('motorCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const dark = getChartColor();
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = dark ? '#1a1e28' : '#eef1f6';
+  ctx.fillRect(0, 0, W, H);
+
+  const cx = W * 0.42, cy = H / 2, R = Math.min(W, H) * 0.38;
+
+  // Stator (outer ring)
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.fillStyle = dark ? '#252936' : '#d0d7e3'; ctx.fill();
+  ctx.strokeStyle = dark ? '#3a4055' : '#b0bbd0'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Stator pole arcs (4 poles)
+  for (let p = 0; p < 4; p++) {
+    const ang = p * Math.PI / 2;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 0.78, -0.4, 0.4);
+    ctx.arc(0, 0, R * 0.62, 0.4, -0.4, true);
+    ctx.closePath();
+    ctx.fillStyle = dark ? '#1a56db22' : '#1a56db18';
+    ctx.fill();
+    ctx.strokeStyle = dark ? '#4a8fff' : '#1a56db';
+    ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+  }
+
+  // Rotor
+  const rotorR = R * 0.55;
+  ctx.beginPath(); ctx.arc(cx, cy, rotorR, 0, Math.PI*2);
+  ctx.fillStyle = dark ? '#1e2232' : '#e8eef6'; ctx.fill();
+  ctx.strokeStyle = dark ? '#2e3448' : '#c0ccdd'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Rotor windings (3 coils)
+  const coilGlow = Math.min(current / M.stallI, 1);
+  for (let c = 0; c < 3; c++) {
+    const ang = motorAngle + c * Math.PI * 2 / 3;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.rect(-rotorR*0.12, rotorR*0.12, rotorR*0.24, rotorR*0.55);
+    const grd = ctx.createLinearGradient(0, rotorR*0.12, 0, rotorR*0.67);
+    const base = dark ? `rgba(74,143,255,` : `rgba(26,86,219,`;
+    grd.addColorStop(0, base + (0.3 + coilGlow*0.5) + ')');
+    grd.addColorStop(1, base + (0.1 + coilGlow*0.3) + ')');
+    ctx.fillStyle = grd; ctx.fill();
+    ctx.strokeStyle = dark ? '#4a8fff' : '#1a56db';
+    ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+
+  // Commutator
+  ctx.beginPath(); ctx.arc(cx, cy, rotorR * 0.22, 0, Math.PI*2);
+  ctx.fillStyle = dark ? '#8b7355' : '#c4a45a'; ctx.fill();
+  ctx.strokeStyle = dark ? '#a08040' : '#8b6914'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Shaft
+  ctx.beginPath();
+  ctx.moveTo(cx + rotorR * 0.22, cy);
+  ctx.lineTo(W * 0.93, cy);
+  ctx.strokeStyle = dark ? '#6b7a99' : '#8090b0';
+  ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.stroke();
+
+  // Rotation direction arrow
+  if (omega_rad > 1) {
+    const arrowR = rotorR * 0.42;
+    ctx.beginPath();
+    ctx.arc(cx, cy, arrowR, motorAngle, motorAngle + Math.PI * 1.4);
+    ctx.strokeStyle = dark ? 'rgba(57,255,20,0.6)' : 'rgba(15,126,62,0.5)';
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
+    const aEnd = motorAngle + Math.PI * 1.4;
+    ctx.save(); ctx.translate(cx + arrowR * Math.cos(aEnd), cy + arrowR * Math.sin(aEnd));
+    ctx.rotate(aEnd + Math.PI / 2);
+    ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(-4, 3); ctx.lineTo(4, 3); ctx.closePath();
+    ctx.fillStyle = dark ? 'rgba(57,255,20,0.6)' : 'rgba(15,126,62,0.5)'; ctx.fill();
+    ctx.restore();
+  }
+
+  // Stall indicator
+  if (omega_rad < 0.5 && getVeff() > 0.1) {
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.font = `bold 13px DM Mono`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = dark ? '#f87171' : '#c81e1e';
+    ctx.fillText('STALL', 0, 0);
+    ctx.restore();
+  }
+
+  // Info overlay
+  const ix = W - 120, iy = 18;
+  ctx.fillStyle = dark ? 'rgba(13,15,20,0.82)' : 'rgba(240,244,249,0.88)';
+  roundRect(ctx, ix - 6, iy - 14, 118, 78, 5); ctx.fill();
+  ctx.strokeStyle = dark ? 'rgba(74,143,255,0.18)' : 'rgba(26,86,219,0.18)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, ix - 6, iy - 14, 118, 78, 5); ctx.stroke();
+  const rpm = omega_rad * 60 / (2 * Math.PI);
+  [
+    ['ω =', rpm.toFixed(0) + ' rpm',         dark ? '#4a8fff'  : '#1a56db'],
+    ['i =', current.toFixed(3) + ' A',       dark ? '#ff6b35'  : '#e3521a'],
+    ['τ =', (tau*1000).toFixed(2) + ' mN·m', dark ? '#c084fc'  : '#7c3aed'],
+    ['η =', eff.toFixed(1) + '%',            dark ? '#39ff14'  : '#0f7e3e'],
+  ].forEach(([k,v,c], i) => {
+    ctx.font = '10px DM Mono';
+    ctx.fillStyle = dark ? '#4a5568' : '#8090b0'; ctx.textAlign = 'left';
+    ctx.fillText(k, ix, iy + i*18);
+    ctx.fillStyle = c; ctx.textAlign = 'right';
+    ctx.fillText(v, ix + 112, iy + i*18);
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r);
+  ctx.closePath();
+}
+
+// ═══════════════════════════════════════════════════════
+// T-S CURVE (Datasheet exact equations)
+// ═══════════════════════════════════════════════════════
+let tsCurveChart = null;
+
+function drawTSCurve() {
+  const canvas = document.getElementById('tsCurveCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const dark = getChartColor();
+  ctx.clearRect(0, 0, W, H);
+
+  const d = M.ds;
+  if (!d || !d.speedA || !d.speedB) {
+    ctx.fillStyle = dark ? '#1a1e28' : '#eef1f6';
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = dark ? '#4a5568' : '#8090b0';
+    ctx.font = '11px DM Mono'; ctx.textAlign = 'center';
+    ctx.fillText('No datasheet curve available for this variant', W/2, H/2);
+    return;
+  }
+
+  const bg = dark ? '#1a1e28' : '#eef1f6';
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  const pad = { l:44, r:16, t:16, b:36 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  // Datasheet curve: speed(τ) = speedA − speedB·τ  (τ in kg·mm, speed in rpm)
+  //                 current(τ)= currC  + currD·τ
+  const maxTau = d.stallTau * 1.05;
+  const maxSpd = d.speedA * 1.05;
+
+  function toX(tau) { return pad.l + (tau / maxTau) * cw; }
+  function toYspd(spd) { return pad.t + ch - (spd / maxSpd) * ch; }
+
+  // Grid lines
+  ctx.strokeStyle = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + i * ch / 4;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+    const x = pad.l + i * cw / 4;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ch); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = dark ? '#2e3448' : '#b8c2d4'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ch); ctx.lineTo(pad.l+cw, pad.t+ch); ctx.stroke();
+
+  // Speed curve
+  ctx.beginPath();
+  for (let t = 0; t <= maxTau; t += maxTau/200) {
+    const spd = d.speedA - d.speedB * t;
+    if (spd < 0) break;
+    const x = toX(t), y = toYspd(spd);
+    t === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle = dark ? '#4a8fff' : '#1a56db'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Efficiency curve (derived from datasheet formulas)
+  // P_out(τ) = τ·ω = τ·(rpm/60·2π) = τ·speedA - speedB·τ² [in rpm→rad/s]
+  // P_in(τ) = V · I(τ) = V·(currC + currD·τ)
+  // η(τ) = P_out / P_in
+  const Vnom = d.V;
+  const maxEff_scale = 1.0; // efficiency 0-100%
+  ctx.beginPath(); let effStarted = false;
+  for (let t = 0; t <= maxTau; t += maxTau/200) {
+    const spd_rpm = d.speedA - d.speedB * t;
+    if (spd_rpm < 0) break;
+    const spd_rad = spd_rpm * 2 * Math.PI / 60;
+    const tau_Nm = t * 9.80665e-3;
+    const pout = tau_Nm * spd_rad;
+    const iVal = d.currC + d.currD * t;
+    const pin = Vnom * iVal;
+    const eta = pin > 0.001 ? Math.min(pout / pin * 100, 100) : 0;
+    const x = toX(t);
+    const y = pad.t + ch - (eta / 100) * ch;
+    if (!effStarted) { ctx.moveTo(x,y); effStarted = true; }
+    else ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle = dark ? '#39ff14' : '#0f7e3e'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Power curve
+  ctx.beginPath(); let powStarted = false;
+  for (let t = 0; t <= maxTau; t += maxTau/200) {
+    const spd_rpm = d.speedA - d.speedB * t;
+    if (spd_rpm < 0) break;
+    const spd_rad = spd_rpm * 2 * Math.PI / 60;
+    const tau_Nm = t * 9.80665e-3;
+    const pout = tau_Nm * spd_rad;
+    const x = toX(t);
+    const maxPow_w = (d.maxPow || 2.0);
+    const y = pad.t + ch - (pout / maxPow_w) * ch * 0.85;
+    const yc = Math.max(pad.t, Math.min(pad.t+ch, y));
+    if (!powStarted) { ctx.moveTo(x,yc); powStarted=true; }
+    else ctx.lineTo(x,yc);
+  }
+  ctx.strokeStyle = dark ? '#fbbf24' : '#b45309'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Max efficiency point
+  if (d.maxEffTau != null) {
+    const mex = toX(d.maxEffTau);
+    const meSpd = d.speedA - d.speedB * d.maxEffTau;
+    const mey = toYspd(meSpd > 0 ? meSpd : 0);
+    ctx.beginPath(); ctx.arc(mex, mey, 5, 0, Math.PI*2);
+    ctx.fillStyle = dark ? '#39ff14' : '#0f7e3e'; ctx.fill();
+    ctx.strokeStyle = dark ? '#1a1e28' : '#eef1f6'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // Live operating point
+  const omega = simState.omega;
+  const rpm_motor = omega * 60 / (2 * Math.PI);
+  const tau_motor_Nm = M.Kt * simState.current;
+  const tau_motor_kgmm = tau_motor_Nm / 9.80665e-3;
+  const opX = toX(Math.min(tau_motor_kgmm, maxTau));
+  const opY = toYspd(Math.min(rpm_motor, maxSpd));
+
+  ctx.beginPath(); ctx.arc(opX, opY, 6, 0, Math.PI*2);
+  ctx.fillStyle = dark ? '#ff6b35' : '#e3521a'; ctx.fill();
+  ctx.strokeStyle = dark ? '#1a1e28' : '#eef1f6'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = dark ? '#4a5568' : '#8090b0';
+  ctx.font = '9px DM Mono'; ctx.textAlign = 'center';
+  ctx.fillText(`Torque (kg·mm)`, pad.l + cw/2, H - 4);
+  ctx.save(); ctx.translate(11, pad.t + ch/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('Speed (rpm)', 0, 0);
+  ctx.restore();
+
+  // Tick labels
+  ctx.font = '8px DM Mono'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const spd = maxSpd * (1 - i/4);
+    ctx.fillText(Math.round(spd), pad.l - 3, pad.t + i*ch/4 + 3);
+    ctx.textAlign = 'center';
+    ctx.fillText((maxTau * i/4).toFixed(1), toX(maxTau*i/4), pad.t+ch+12);
+    ctx.textAlign = 'right';
+  }
+
+  // Legend
+  const items = [
+    [dark?'#4a8fff':'#1a56db', 'Speed', false],
+    [dark?'#39ff14':'#0f7e3e', 'Efficiency', true],
+    [dark?'#fbbf24':'#b45309', 'Power',      true],
+    [dark?'#ff6b35':'#e3521a', '● Op. Point', false],
+  ];
+  items.forEach(([c, lbl, dash], i) => {
+    const lx = pad.l + i * 90, ly = pad.t + 8;
+    ctx.strokeStyle = c; ctx.lineWidth = 1.5;
+    if (dash) ctx.setLineDash([4,3]); else ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx+18, ly); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = dark ? '#8892a4' : '#5a6880';
+    ctx.font = '8px DM Mono'; ctx.textAlign = 'left';
+    ctx.fillText(lbl, lx+21, ly+3);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════
+function onCtrl(key, val) {
+  const v = parseFloat(val);
+  if (isNaN(v)) return;
+  if (key === 'V') {
+    C.V = Math.min(v, M.ds ? M.ds.V : 12);
+    document.getElementById('vV').textContent = C.V.toFixed(2) + ' V';
+    syncSlider('V', C.V);
+    updateVeff();
+  }
+  if (key === 'PWM') {
+    C.PWM = Math.min(100, Math.max(0, v));
+    document.getElementById('vPWM').textContent = C.PWM.toFixed(0) + '%';
+    syncSlider('PWM', C.PWM);
+    updateVeff();
+  }
+  if (key === 'TL') {
+    C.TL_out = Math.max(0, v);
+    document.getElementById('vTL').textContent = C.TL_out.toFixed(4) + ' N·m';
+    const kgmm = C.TL_out / 9.80665e-3;
+    document.getElementById('tlKgmm').textContent = `= ${kgmm.toFixed(2)} kg·mm at output`;
+    syncSlider('TL', C.TL_out);
+    // Torque limit warning
+    const limit = getTorqueLimit(nominalGR) * 9.80665e-3;
+    document.getElementById('torqueWarn').classList.toggle('visible', C.TL_out > limit);
+  }
+  if (key === 'TEMP') {
+    C.TEMP = v;
+    document.getElementById('vTemp').textContent = v.toFixed(0) + '°C';
+    syncSlider('TEMP', v);
+    const alpha = 0.00393;
+    const mult = M.R ? (1 + alpha * (v - 25)) : 1;
+    document.getElementById('tempRinfo').textContent = `R correction: ×${mult.toFixed(3)} (ref 25°C)`;
+  }
+}
+
+function updateVeff() {
+  const Veff = getVeff();
+  document.getElementById('veffInfo').textContent = `Effective V = ${Veff.toFixed(2)} V`;
+}
+
+function syncSlider(key, val) {
+  const map = { V:['slV','numV'], PWM:['slPWM','numPWM'], TL:['slTL','numTL'], TEMP:['slTemp','numTemp'] };
+  const [sl, num] = map[key] || [];
+  if (sl) document.getElementById(sl).value = val;
+  if (num) document.getElementById(num).value = typeof val === 'number' ? val.toFixed(key==='TL'?4:2) : val;
+}
+
+function onMotorChange() {
+  const typeKey = document.getElementById('selType').value;
+  const gear = parseInt(document.getElementById('selGear').value);
+  deriveConstants(typeKey, gear);
+  // Adjust TL max
+  const d = DS[typeKey + '_' + gear];
+  if (d) updateSliderMaxes(d);
+  resetSim();
+}
+
+function resetSim() {
+  simState = { omega:0, current:0, time:0, angle:0, motorTemp: C.TEMP };
+  motorAngle = 0;
+  Object.values(charts).forEach(c => {
+    if (!c) return;
+    c.data.labels = [];
+    c.data.datasets.forEach(ds => ds.data = []);
+    c.update('none');
+  });
+  Object.keys(warnState).forEach(k => { clearTimeout(warnState[k]); delete warnState[k]; });
+  document.getElementById('warnPanel').innerHTML = '';
+  drawTSCurve();
+}
+
+// ═══════════════════════════════════════════════════════
+// WARNINGS
+// ═══════════════════════════════════════════════════════
+const warnState = {};
+function warnOnce(key, msg, isDanger) {
+  if (warnState[key]) return;
+  const panel = document.getElementById('warnPanel');
+  const el = document.createElement('div');
+  el.className = 'toast' + (isDanger ? ' err' : '');
+  el.textContent = msg;
+  panel.appendChild(el);
+  warnState[key] = setTimeout(() => { el.remove(); delete warnState[key]; }, 4500);
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN SIMULATION LOOP
+// ═══════════════════════════════════════════════════════
+function simLoop(ts) {
+  if (!simRunning) { requestAnimationFrame(simLoop); return; }
+
+  const wallDt = Math.min((ts - lastT) * 0.001, 0.05);
+  lastT = ts;
+  simAccum += wallDt;
+
+  const steps = Math.min(Math.floor(simAccum / DT), 50);
+  simAccum -= steps * DT;
+
+  for (let s = 0; s < steps; s++) {
+    const res = rk4(simState.omega, simState.current, DT);
+    simState.omega   = res.omega;
+    simState.current = res.current;
+    simState.time   += DT;
+    simState.angle  += simState.omega * DT;
+    motorAngle       = simState.angle;
+    thermalStep(DT);
+  }
+
+  const safe = v => isFinite(v) && !isNaN(v) ? v : 0;
+  const omega   = safe(simState.omega);
+  const current = safe(simState.current);
+  const tau     = M.Kt ? M.Kt * current : 0;          // motor torque N·m
+  const omegaOut = omega / GR;
+  const rpmMotor = omega  * 60 / (2 * Math.PI);
+  const rpmOut   = omegaOut * 60 / (2 * Math.PI);
+  const Veff     = getVeff();
+  const pin      = Veff * current;
+  const pout     = C.TL_out * omegaOut;
+  const cuLoss   = current * current * getReff();
+  const eff      = pin > 0.01 ? Math.min(pout / pin * 100, 100) : 0;
+  const tauOut   = tau * GR;
+
+  // Update gauges
+  document.getElementById('gMotorSpeed').textContent = safe(rpmMotor).toFixed(1);
+  document.getElementById('gOutRPM').textContent     = safe(rpmOut).toFixed(1);
+  document.getElementById('gCurrent').textContent    = safe(current).toFixed(3);
+  document.getElementById('gTorque').textContent     = safe(tau * 1000).toFixed(2);
+  document.getElementById('gPin').textContent        = safe(pin).toFixed(3);
+  document.getElementById('gPout').textContent       = safe(pout).toFixed(3);
+  document.getElementById('gCuLoss').textContent     = safe(cuLoss).toFixed(3);
+
+  const effEl = document.getElementById('gEff');
+  const effVal = safe(eff);
+  effEl.textContent = effVal.toFixed(1);
+  effEl.style.color = effVal < 20 ? 'var(--danger)' : effVal < 40 ? 'var(--warn)' : 'var(--acc3)';
+
+  // Operating point
+  document.getElementById('opTout').textContent     = (tauOut * 1000).toFixed(2) + ' mN·m';
+  document.getElementById('opToutKg').textContent   = (tauOut / 9.80665e-3).toFixed(3) + ' kg·mm';
+  document.getElementById('opBemf').textContent     = M.Ke ? (M.Ke * omega).toFixed(3) + ' V' : '—';
+  document.getElementById('opPctStall').textContent = M.tau_stall_motor > 0 ? (tau / M.tau_stall_motor * 100).toFixed(1) + '%' : '—';
+  document.getElementById('opPctSpeed').textContent = M.omega0_motor > 0 ? (omega / M.omega0_motor * 100).toFixed(1) + '%' : '—';
+  document.getElementById('opVeff').textContent     = Veff.toFixed(2) + ' V';
+
+  // Thermal display
+  const tempEl = document.getElementById('motorTemp');
+  const tempVal = safe(simState.motorTemp);
+  tempEl.textContent = tempVal.toFixed(1);
+  tempEl.style.color = tempVal > 85 ? 'var(--danger)' : tempVal > 60 ? 'var(--warn)' : 'var(--acc)';
+  document.getElementById('rCurrent').textContent = M.R ? getReff().toFixed(3) : '—';
+
+  // Clock
+  document.getElementById('simClock').textContent = `t = ${simState.time.toFixed(3)} s`;
+
+  // Status chips
+  const stall = omega < 0.5 && Veff > 0.1;
+  const over  = tempVal > 75;
+  const run   = omega > 0.5;
+  document.getElementById('chipStall').classList.toggle('on', stall);
+  document.getElementById('chipOver').classList.toggle('on',  over);
+  document.getElementById('chipRun').classList.toggle('on',   run);
+  document.getElementById('liveDot').style.animationPlayState = run ? 'running' : 'paused';
+
+  // Warnings (datasheet-faithful)
+  if (stall) warnOnce('stall', '⚡ Motor stalled — reduce load or increase voltage', true);
+  if (tempVal > 85) warnOnce('heat', '🌡 Motor overheating! Stalling can cause damage in seconds.', true);
+  if (current > M.stallI * 0.8) warnOnce('curr', '⚠ Current near stall limit (>80% of I_stall)');
+  if (C.TL_out > getTorqueLimit(nominalGR) * 9.80665e-3) {
+    warnOnce('tlimit', `⚠ Output torque exceeds ${getTorqueLimit(nominalGR)} kg·mm gearbox limit!`, true);
+  }
+
+  if (steps > 0) {
+    drawMotor(safe(omega), safe(current), safe(tau), safe(eff));
+    drawTSCurve();
+    pushChart(charts.speed,   simState.time, safe(rpmMotor));
+    pushChart(charts.current, simState.time, safe(current));
+    pushChart(charts.torque,  simState.time, safe(tau * 1000));
+    pushChart(charts.eff,     simState.time, safe(eff));
+    pushChart(charts.power,   simState.time, safe(pin), safe(pout));
+  }
+
+  requestAnimationFrame(simLoop);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+function init() {
+  initCharts();
+  deriveConstants('HP6', 30);
+
+  // Set initial slider values consistently
+  C.V = 6; C.PWM = 100; C.TL_out = 0; C.TEMP = 25;
+  syncSlider('V', 6);
+  syncSlider('PWM', 100);
+  syncSlider('TL', 0);
+  syncSlider('TEMP', 25);
+  updateVeff();
+
+  document.getElementById('btnPause').onclick = () => {
+    simRunning = !simRunning;
+    const btn = document.getElementById('btnPause');
+    btn.textContent = simRunning ? '⏸ PAUSE' : '▶ RESUME';
+    btn.className   = simRunning ? 'hbtn running' : 'hbtn';
+  };
+  document.getElementById('btnReset').onclick = resetSim;
+
+  lastT = performance.now();
+  requestAnimationFrame(simLoop);
+}
+
+init();
+
+// ═══════════════════════════════════════════════════════
+// 3D MOTOR PREVIEW — Three.js
+// 2-pole permanent magnet DC motor (2 magnets only)
+// ═══════════════════════════════════════════════════════
+(function setup3DMotor() {
+  const container = document.getElementById('motor3dContainer');
+  if (!container || !window.THREE) return;
+
+  const W = container.clientWidth  || 460;
+  const H = container.clientHeight || 240;
+
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(W, H);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  // Scene
+  const scene = new THREE.Scene();
+
+  // Camera
+  const camera = new THREE.PerspectiveCamera(42, W / H, 0.01, 100);
+  camera.position.set(0, 0.08, 0.28);
+  camera.lookAt(0, 0, 0);
+
+  // Lighting
+  const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+  scene.add(ambient);
+  const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+  sun.position.set(0.3, 0.5, 0.6);
+  sun.castShadow = true;
+  scene.add(sun);
+  const fill = new THREE.PointLight(0x4488ff, 0.5, 2);
+  fill.position.set(-0.2, 0.1, 0.1);
+  scene.add(fill);
+
+  // ── Materials ──
+  const matSteel = new THREE.MeshStandardMaterial({ color: 0x778899, metalness: 0.85, roughness: 0.25 });
+  const matBrass = new THREE.MeshStandardMaterial({ color: 0xc4a44a, metalness: 0.75, roughness: 0.3 });
+  const matCopper = new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.6, roughness: 0.4 });
+  const matBlack = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.1, roughness: 0.8 });
+  const matNorth = new THREE.MeshStandardMaterial({ color: 0xcc3333, metalness: 0.3, roughness: 0.5, emissive: 0x440000 });
+  const matSouth = new THREE.MeshStandardMaterial({ color: 0x3366cc, metalness: 0.3, roughness: 0.5, emissive: 0x000044 });
+  const matShaft = new THREE.MeshStandardMaterial({ color: 0xaabbcc, metalness: 0.95, roughness: 0.1 });
+  const matWinding = new THREE.MeshStandardMaterial({ color: 0xcc6600, metalness: 0.2, roughness: 0.6 });
+  const matEndcap = new THREE.MeshStandardMaterial({ color: 0x444455, metalness: 0.5, roughness: 0.5 });
+
+  // ── Motor group (everything rotates with rotor) ──
+  const motorGroup = new THREE.Group();
+  scene.add(motorGroup);
+
+  // ── Static stator shell (outer can) ──
+  const canR = 0.075, canL = 0.14;
+  const canGeo = new THREE.CylinderGeometry(canR, canR, canL, 48, 1, true);
+  const canMat = new THREE.MeshStandardMaterial({ color: 0x556677, metalness: 0.8, roughness: 0.3, side: THREE.BackSide });
+  const can = new THREE.Mesh(canGeo, canMat);
+  can.rotation.z = Math.PI / 2;
+  scene.add(can);
+
+  // End caps
+  [-canL/2, canL/2].forEach(x => {
+    const cap = new THREE.Mesh(new THREE.CircleGeometry(canR, 48), matEndcap);
+    cap.rotation.y = x < 0 ? 0 : Math.PI;
+    cap.position.x = x;
+    scene.add(cap);
+  });
+
+  // ── TWO PERMANENT MAGNETS (arc segments, N and S) ──
+  // Pololu micro metal gearmotor: 2-pole motor = 2 magnet arcs
+  // They sit on the inside of the stator can, top and bottom
+  const magR_outer = canR - 0.003;
+  const magR_inner = magR_outer - 0.018;
+  const magArc = Math.PI * 0.82; // ~148° arc each
+  const magLen = canL * 0.80;
+
+  function makeArcMagnet(startAngle, material) {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, magR_outer, startAngle, startAngle + magArc, false);
+    shape.absarc(0, 0, magR_inner, startAngle + magArc, startAngle, true);
+    shape.closePath();
+    const extGeo = new THREE.ExtrudeGeometry(shape, {
+      depth: magLen,
+      bevelEnabled: false
+    });
+    const mesh = new THREE.Mesh(extGeo, material);
+    mesh.rotation.y = Math.PI / 2;
+    mesh.position.x = -magLen / 2;
+    return mesh;
+  }
+
+  const magnetN = makeArcMagnet(0.19, matNorth);   // North — top
+  const magnetS = makeArcMagnet(Math.PI + 0.19, matSouth); // South — bottom
+  scene.add(magnetN, magnetS);
+
+  // Magnet labels (N / S) using small flat planes with canvas texture
+  function makeLabel(text, color) {
+    const cv = document.createElement('canvas');
+    cv.width = 64; cv.height = 32;
+    const c = cv.getContext('2d');
+    c.fillStyle = color;
+    c.font = 'bold 24px sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(text, 32, 16);
+    const tex = new THREE.CanvasTexture(cv);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.028, 0.014), mat);
+    return mesh;
+  }
+  const lblN = makeLabel('N', '#ff8888');
+  lblN.position.set(0, magR_outer - 0.009, 0);
+  lblN.rotation.set(0, Math.PI/2, 0);
+  scene.add(lblN);
+  const lblS = makeLabel('S', '#88aaff');
+  lblS.position.set(0, -(magR_outer - 0.009), 0);
+  lblS.rotation.set(0, Math.PI/2, 0);
+  scene.add(lblS);
+
+  // ── ROTOR (rotates) ──
+  const rotorGroup = new THREE.Group();
+  motorGroup.add(rotorGroup);
+
+  // Rotor core (lamination stack)
+  const rotorR = 0.044;
+  const rotorCore = new THREE.Mesh(
+    new THREE.CylinderGeometry(rotorR, rotorR, canL * 0.78, 36),
+    new THREE.MeshStandardMaterial({ color: 0x3a4050, metalness: 0.7, roughness: 0.4 })
+  );
+  rotorCore.rotation.z = Math.PI / 2;
+  rotorGroup.add(rotorCore);
+
+  // 3 rotor teeth / armature slots
+  for (let i = 0; i < 3; i++) {
+    const ang = (i / 3) * Math.PI * 2;
+    const toothGeo = new THREE.BoxGeometry(canL * 0.72, 0.012, 0.022);
+    const tooth = new THREE.Mesh(toothGeo, matSteel);
+    tooth.position.set(0, Math.cos(ang) * (rotorR - 0.003), Math.sin(ang) * (rotorR - 0.003));
+    tooth.rotation.x = ang;
+    rotorGroup.add(tooth);
+
+    // Copper winding on each slot
+    const wGeo = new THREE.CylinderGeometry(0.007, 0.007, canL * 0.62, 8);
+    const w = new THREE.Mesh(wGeo, matWinding);
+    w.rotation.z = Math.PI / 2;
+    w.position.set(0, Math.cos(ang) * rotorR * 1.12, Math.sin(ang) * rotorR * 1.12);
+    rotorGroup.add(w);
+  }
+
+  // Commutator (3 segments, brass)
+  const commR = 0.018;
+  for (let i = 0; i < 3; i++) {
+    const ang = (i / 3) * Math.PI * 2;
+    const segGeo = new THREE.CylinderGeometry(commR, commR, 0.022, 8, 1, false,
+      ang + 0.12, (Math.PI * 2 / 3) - 0.24);
+    const seg = new THREE.Mesh(segGeo, matBrass);
+    seg.rotation.z = Math.PI / 2;
+    seg.position.x = canL * 0.36;
+    rotorGroup.add(seg);
+  }
+
+  // ── SHAFT ──
+  const shaftGeo = new THREE.CylinderGeometry(0.006, 0.006, canL * 1.6, 16);
+  const shaft = new THREE.Mesh(shaftGeo, matShaft);
+  shaft.rotation.z = Math.PI / 2;
+  rotorGroup.add(shaft);
+
+  // Brushes (two, 90° to magnets)
+  for (let s = 0; s < 2; s++) {
+    const ang = s * Math.PI;
+    const brushGeo = new THREE.BoxGeometry(0.006, 0.022, 0.008);
+    const brush = new THREE.Mesh(brushGeo, matBlack);
+    brush.position.set(canL * 0.36, Math.cos(ang) * (commR + 0.006), Math.sin(ang) * (commR + 0.006));
+    scene.add(brush); // static, not in rotorGroup
+  }
+
+  // ── ORBIT CONTROLS (manual drag to rotate view) ──
+  let isDragging = false, prevMouse = { x: 0, y: 0 };
+  let orbitTheta = 0.3, orbitPhi = 0.35, orbitR = 0.28;
+
+  container.addEventListener('mousedown', e => { isDragging = true; prevMouse = { x: e.clientX, y: e.clientY }; container.style.cursor = 'grabbing'; });
+  window.addEventListener('mouseup', () => { isDragging = false; container.style.cursor = 'grab'; });
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = (e.clientX - prevMouse.x) * 0.012;
+    const dy = (e.clientY - prevMouse.y) * 0.012;
+    orbitTheta -= dx;
+    orbitPhi = Math.max(0.05, Math.min(Math.PI - 0.05, orbitPhi + dy));
+    prevMouse = { x: e.clientX, y: e.clientY };
+  });
+  container.addEventListener('wheel', e => {
+    orbitR = Math.max(0.15, Math.min(0.55, orbitR + e.deltaY * 0.0004));
+    e.preventDefault();
+  }, { passive: false });
+
+  // Touch support
+  let prevTouch = null;
+  container.addEventListener('touchstart', e => { prevTouch = e.touches[0]; }, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (!prevTouch) return;
+    const dx = (e.touches[0].clientX - prevTouch.clientX) * 0.012;
+    const dy = (e.touches[0].clientY - prevTouch.clientY) * 0.012;
+    orbitTheta -= dx;
+    orbitPhi = Math.max(0.05, Math.min(Math.PI - 0.05, orbitPhi + dy));
+    prevTouch = e.touches[0];
+  }, { passive: true });
+
+  // ── Theme-aware background ──
+  function get3DBg() {
+    return document.body.getAttribute('data-theme') === 'dark' ? '#1a1e28' : '#eef1f6';
+  }
+
+  // ── Resize ──
+  function onResize() {
+    const w = container.clientWidth, h = container.clientHeight;
+    if (!w || !h) return;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+  window.addEventListener('resize', onResize);
+
+  // ── Animation loop ──
+  function animate3D() {
+    requestAnimationFrame(animate3D);
+
+    // Rotor rotation from sim
+    const angle = typeof motorAngle !== 'undefined' ? motorAngle : 0;
+    rotorGroup.rotation.x = angle;
+
+    // Orbit camera
+    camera.position.set(
+      orbitR * Math.sin(orbitPhi) * Math.sin(orbitTheta),
+      orbitR * Math.cos(orbitPhi),
+      orbitR * Math.sin(orbitPhi) * Math.cos(orbitTheta)
+    );
+    camera.lookAt(0, 0, 0);
+
+    // Magnet glow when running
+    const running = typeof simState !== 'undefined' && simState.omega > 1;
+    const intensity = running ? 0.18 + 0.12 * Math.abs(Math.sin(Date.now() * 0.004)) : 0.08;
+    matNorth.emissiveIntensity = intensity;
+    matSouth.emissiveIntensity = intensity;
+
+    renderer.setClearColor(get3DBg(), 1);
+    renderer.render(scene, camera);
+  }
+  animate3D();
+})();
+
+</script>
+</body>
+</html>
